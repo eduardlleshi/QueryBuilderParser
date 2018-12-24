@@ -3,8 +3,8 @@
 namespace timgws;
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Builder as Eloquent_Builder;
 use stdClass;
-use timgws\QBParseException;
 
 class JoinSupportingQueryBuilderParser extends QueryBuilderParser
 {
@@ -14,7 +14,7 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
     protected $joinFields;
 
     /**
-     * @param array $fields     a list of all the fields that are allowed to be filtered by the QueryBuilder
+     * @param array $fields a list of all the fields that are allowed to be filtered by the QueryBuilder
      * @param array $joinFields an associative array of the join fields keyed by fields name, with the following keys
      *                          - from_table       The name of the master table
      *                          - from_col         The column of the master table to use in the join
@@ -42,15 +42,15 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
      * Make sure that all the correct fields are in the rule object then add the expression to
      * the query that was given by the user to the QueryBuilder.
      *
-     * @param Builder  $query
+     * @param Builder|Eloquent_Builder $query
      * @param stdClass $rule
-     * @param string   $queryCondition the condition that will be used in the query
+     * @param string $queryCondition the condition that will be used in the query
      *
      * @throws QBParseException
      *
-     * @return Builder
+     * @return Builder|Eloquent_Builder
      */
-    protected function makeQuery(Builder $query, stdClass $rule, $queryCondition = 'AND')
+    protected function makeQuery($query, stdClass $rule, $queryCondition = 'AND')
     {
         /*
          * Ensure that the value is correct for the rule, return query on exception
@@ -73,10 +73,10 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
     /**
      * Build a subquery clause if there are join fields that have been specified.
      *
-     * @param Builder $query
+     * @param Builder|Eloquent_Builder $query
      * @param stdClass $rule
      * @param string|null $value
-     * @return Builder the query builder object
+     * @return Builder|Eloquent_Builder the query builder object
      */
     private function buildSubclauseQuery($query, $rule, $value, $condition)
     {
@@ -93,30 +93,26 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
         $subclause['value'] = $value;
         $subclause['require_array'] = $require_array;
 
-        $not = array_key_exists('not_exists', $subclause) && $subclause['not_exists'];
+        $not = array_key_exists('not_exists', $subclause) && $subclause['not_exists'] && is_array($subclause['not_exists']) && isset($subclause['not_exists'][$rule->operator]) && $subclause['not_exists'][$rule->operator];
+
+        if ($not && $subclause['operator'] == '!=') {
+            $subclause['operator'] = '=';
+        }
 
         // Create a where exists clause to join to the other table, and find results matching the criteria
-        $query = $query->whereExists(
-            /**
-             * @param Builder $query
-             */
-            function(Builder $query) use ($subclause) {
+        $query = $query->whereExists(/**
+         * @param Builder|Eloquent_Builder $query
+         */
+            function ($query) use ($subclause) {
 
-                $q = $query->selectRaw(1)
-                    ->from($subclause['to_table'])
-                    ->whereRaw($subclause['to_table'].'.'.$subclause['to_col']
-                        .' = '
-                        .$subclause['from_table'].'.'.$subclause['from_col']);
+                $q = $query->selectRaw(1)->from($subclause['to_table'])->whereRaw($subclause['to_table'].'.'.$subclause['to_col'].' = '.$subclause['from_table'].'.'.$subclause['from_col']);
 
                 if (array_key_exists('to_clause', $subclause)) {
                     $q->where($subclause['to_clause']);
                 }
 
                 $this->buildSubclauseInnerQuery($subclause, $q);
-            },
-            $condition,
-            $not
-        );
+            }, $condition, $not);
 
         return $query;
     }
@@ -126,10 +122,11 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
      *
      * @see buildSubclauseQuery
      * @param array $subclause
-     * @param Builder $query
-     * @return Builder the query builder object
+     * @param Builder|Eloquent_Builder $query
+     * @return Builder|Eloquent_Builder the query builder object
+     * @throws \timgws\QBParseException
      */
-    private function buildSubclauseInnerQuery($subclause, Builder $query)
+    private function buildSubclauseInnerQuery($subclause, $query)
     {
         if ($subclause['require_array']) {
             return $this->buildRequireArrayQuery($subclause, $query);
@@ -148,10 +145,10 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
      * @see buildSubclauseInnerQuery
      * @throws QBParseException when an invalid array is passed.
      * @param array $subclause
-     * @param Builder $query
-     * @return Builder the query builder object
+     * @param Builder|Eloquent_Builder $query
+     * @return Builder|Eloquent_Builder the query builder object
      */
-    private function buildRequireArrayQuery($subclause, Builder $query)
+    private function buildRequireArrayQuery($subclause, $query)
     {
         if ($subclause['operator'] == 'IN') {
             $query->whereIn($subclause['to_value_column'], $subclause['value']);
@@ -159,15 +156,13 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
             $query->whereNotIn($subclause['to_value_column'], $subclause['value']);
         } elseif ($subclause['operator'] == 'BETWEEN') {
             if (count($subclause['value']) !== 2) {
-                throw new QBParseException($subclause['to_value_column'].
-                    ' should be an array with only two items.');
+                throw new QBParseException($subclause['to_value_column'].' should be an array with only two items.');
             }
 
             $query->whereBetween($subclause['to_value_column'], $subclause['value']);
         } elseif ($subclause['operator'] == 'NOT BETWEEN') {
             if (count($subclause['value']) !== 2) {
-                throw new QBParseException($subclause['to_value_column'].
-                    ' should be an array with only two items.');
+                throw new QBParseException($subclause['to_value_column'].' should be an array with only two items.');
             }
 
             $query->whereNotBetween($subclause['to_value_column'], $subclause['value']);
@@ -181,10 +176,10 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
      *
      * @see buildSubclauseInnerQuery
      * @param array $subclause
-     * @param Builder $query
-     * @return Builder the query builder object
+     * @param Builder|Eloquent_Builder $query
+     * @return Builder|Eloquent_Builder the query builder object
      */
-    private function buildRequireNotArrayQuery($subclause, Builder $query)
+    private function buildRequireNotArrayQuery($subclause, $query)
     {
         return $query->where($subclause['to_value_column'], $subclause['operator'], $subclause['value']);
     }
@@ -194,10 +189,10 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
      *
      * @see buildSubclauseInnerQuery
      * @param array $subclause
-     * @param Builder $query
-     * @return Builder the query builder object
+     * @param Builder|Eloquent_Builder $query
+     * @return Builder|Eloquent_Builder the query builder object
      */
-    private function buildSubclauseWithNull($subclause, Builder $query, $isNotNull = false)
+    private function buildSubclauseWithNull($subclause, $query, $isNotNull = false)
     {
         if ($isNotNull === true) {
             return $query->whereNotNull($subclause['to_value_column']);
@@ -205,5 +200,4 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
 
         return $query->whereNull($subclause['to_value_column']);
     }
-
 }
