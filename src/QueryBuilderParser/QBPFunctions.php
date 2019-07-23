@@ -2,10 +2,10 @@
 
 namespace timgws;
 
-use \Illuminate\Database\Query\Builder;
-use \Illuminate\Database\Eloquent\Builder as Eloquent_Builder;
-use \stdClass;
-use \Carbon\Carbon;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder as Eloquent_Builder;
+use Illuminate\Database\Query\Builder;
+use stdClass;
 
 trait QBPFunctions
 {
@@ -120,6 +120,8 @@ trait QBPFunctions
      */
     protected function enforceArrayOrString($requireArray, $value, $field)
     {
+        $value = $this->tryExplode($requireArray, $value);
+
         $this->checkFieldIsAnArray($requireArray, $value, $field);
 
         if (! $requireArray && is_array($value)) {
@@ -130,13 +132,30 @@ trait QBPFunctions
     }
 
     /**
+     * Enforce whether the value for a given field is the correct type
+     *
+     * @param bool $requireArray value must be an array
+     * @param mixed $value the value we are checking against
+     *
+     * @return mixed value after enforcement
+     */
+    protected function tryExplode($requireArray, $value)
+    {
+        if ($requireArray && ! is_array($value) && ! empty($value) && is_string($value) && strpos($value, ',') !== false) {
+            $value = explode(',', $value);
+        }
+
+        return $value;
+    }
+
+    /**
      * Ensure that a given field is an array if required.
      *
-     * @see enforceArrayOrString
      * @param boolean $requireArray
      * @param $value
      * @param string $field
      * @throws QBParseException
+     * @see enforceArrayOrString
      */
     protected function checkFieldIsAnArray($requireArray, $value, $field)
     {
@@ -150,11 +169,11 @@ trait QBPFunctions
      *
      * In some instances, and array may be given when we want a string.
      *
-     * @see enforceArrayOrString
      * @param string $field
      * @param $value
      * @return mixed
      * @throws QBParseException
+     * @see enforceArrayOrString
      */
     protected function convertArrayToFlatValue($field, $value)
     {
@@ -210,8 +229,8 @@ trait QBPFunctions
      * Decode the given JSON
      *
      * @param string incoming json
-     * @throws QBParseException
      * @return stdClass
+     * @throws QBParseException
      */
     private function decodeJSON($json)
     {
@@ -271,9 +290,9 @@ trait QBPFunctions
      * @param array $value
      * @param string $condition
      *
+     * @return Builder|Eloquent_Builder
      * @throws QBParseException
      *
-     * @return Builder|Eloquent_Builder
      */
     protected function makeQueryWhenArray($query, stdClass $rule, array $sqlOperator, array $value, $condition)
     {
@@ -294,8 +313,8 @@ trait QBPFunctions
      * @param array $sqlOperator
      * @param string $condition
      *
-     * @throws QBParseException when SQL operator is !null
      * @return Builder|Eloquent_Builder
+     * @throws QBParseException when SQL operator is !null
      */
     protected function makeQueryWhenNull($query, stdClass $rule, array $sqlOperator, $condition)
     {
@@ -311,13 +330,13 @@ trait QBPFunctions
     /**
      * makeArrayQueryIn, when the query is an IN or NOT IN...
      *
-     * @see makeQueryWhenArray
      * @param Builder|Eloquent_Builder $query
      * @param stdClass $rule
      * @param string $operator
      * @param array $value
      * @param string $condition
      * @return Builder|Eloquent_Builder
+     * @see makeQueryWhenArray
      */
     private function makeArrayQueryIn($query, stdClass $rule, $operator, array $value, $condition)
     {
@@ -331,14 +350,14 @@ trait QBPFunctions
     /**
      * makeArrayQueryBetween, when the query is a BETWEEN or NOT BETWEEN...
      *
-     * @see makeQueryWhenArray
      * @param Builder|Eloquent_Builder $query
      * @param stdClass $rule
      * @param string operator the SQL operator used. [BETWEEN|NOT BETWEEN]
      * @param array $value
      * @param string $condition
-     * @throws QBParseException when more then two items given for the between
      * @return Builder|Eloquent_Builder
+     * @throws QBParseException when more then two items given for the between
+     * @see makeQueryWhenArray
      */
     private function makeArrayQueryBetween($query, stdClass $rule, $operator, array $value, $condition)
     {
