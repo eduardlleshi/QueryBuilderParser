@@ -13,12 +13,16 @@ class QueryBuilderParser
 
     protected $fields;
 
+	protected $raw_fields;
+
     /**
-     * @param array $fields a list of all the fields that are allowed to be filtered by the QueryBuilder
+     * @param  array  $fields  a list of all the fields that are allowed to be filtered by the QueryBuilder
+	 * @param  array  $raw_fields  list of fields that are set as raw queries
      */
-    public function __construct(array $fields = null)
+	public function __construct(array $fields = [], array $raw_fields = [])
     {
         $this->fields = $fields;
+		$this->raw_fields = $raw_fields;
     }
 
     /**
@@ -65,6 +69,12 @@ class QueryBuilderParser
     protected function loopThroughRules(array $rules, $querybuilder, $queryCondition = 'AND')
     {
         foreach ($rules as $rule) {
+
+			/*
+			 * Convert the field to a raw one if it was given in the constructor
+			 */
+			$rule = $this->convertRawFields($rule);
+
             /*
              * If makeQuery does not see the correct fields, it will return the QueryBuilder without modifications
              */
@@ -277,7 +287,7 @@ class QueryBuilderParser
         /*
          * The field must exist in our list.
          */
-        $this->ensureFieldIsAllowed($this->fields, $rule->field);
+		$this->ensureFieldIsAllowed($this->fields, $this->raw_fields, $rule->field);
 
         /*
          * If the SQL Operator is set not to have a value, make sure that we set the value to null.
@@ -300,4 +310,30 @@ class QueryBuilderParser
 
         return $value;
     }
+
+	/**
+	 * Convert fields to raw ones if necessary
+	 *
+	 * @param $rule
+	 * @return mixed
+	 */
+	protected function convertRawFields($rule)
+	{
+		if ($this->isNested($rule)) {
+			foreach ($rule->rules as $inner_rule) {
+				if($this->isNested($inner_rule)){
+					$inner_rule = $this->convertRawFields($inner_rule);
+				}
+				if (isset($inner_rule->field) && isset($this->raw_fields[$inner_rule->field])) {
+					$inner_rule->field = $this->raw_fields[$inner_rule->field];
+				}
+			}
+		} else {
+			if (isset($this->raw_fields[$rule->field])) {
+				$rule->field = $this->raw_fields[$rule->field];
+			}
+		}
+
+		return $rule;
+	}
 }
