@@ -272,12 +272,13 @@ trait QBPFunctions
      * Check that a given field is in the allowed list if set.
      *
      * @param $fields
+     * @param $raw_fields
      * @param $field
      * @throws QBParseException
      */
-    private function ensureFieldIsAllowed($fields, $field)
+    private function ensureFieldIsAllowed($fields, $raw_fields, $field)
     {
-        if (is_array($fields) && ! in_array($field, $fields)) {
+        if (is_array($fields) && ! in_array($field, $fields) && is_array($raw_fields) && !in_array($field, $raw_fields)) {
             throw new QBParseException("Field ({$field}) does not exist in fields list");
         }
     }
