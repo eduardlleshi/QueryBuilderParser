@@ -2,10 +2,10 @@
 
 namespace timgws;
 
-use \Carbon\Carbon;
-use \stdClass;
-use \Illuminate\Database\Query\Builder;
-use \Illuminate\Database\Eloquent\Builder as Eloquent_Builder;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder as Eloquent_Builder;
+use Illuminate\Database\Query\Builder;
+use stdClass;
 
 class QueryBuilderParser
 {
@@ -319,19 +319,23 @@ class QueryBuilderParser
 	 */
 	protected function convertRawFields($rule)
 	{
-		if ($this->isNested($rule)) {
-			foreach ($rule->rules as $inner_rule) {
-				if($this->isNested($inner_rule)){
-					$inner_rule = $this->convertRawFields($inner_rule);
+		try {
+			if ( $this->isNested( $rule ) ) {
+				foreach ( $rule->rules as $inner_rule ) {
+					if ( $this->isNested( $inner_rule ) ) {
+						$inner_rule = $this->convertRawFields( $inner_rule );
+					}
+					if ( isset( $inner_rule->field ) && isset( $this->raw_fields[$inner_rule->field] ) ) {
+						$inner_rule->field = $this->raw_fields[$inner_rule->field];
+					}
 				}
-				if (isset($inner_rule->field) && isset($this->raw_fields[$inner_rule->field])) {
-					$inner_rule->field = $this->raw_fields[$inner_rule->field];
+			} else {
+				if ( isset( $rule->field ) && isset( $this->raw_fields[$rule->field] ) ) {
+					$rule->field = $this->raw_fields[$rule->field];
 				}
 			}
-		} else {
-			if (isset($this->raw_fields[$rule->field])) {
-				$rule->field = $this->raw_fields[$rule->field];
-			}
+		} catch ( \Exception $e ) {
+			return $rule;
 		}
 
 		return $rule;
