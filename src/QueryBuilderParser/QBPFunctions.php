@@ -141,8 +141,12 @@ trait QBPFunctions
      */
     protected function tryExplode($requireArray, $value)
     {
-        if ($requireArray && ! is_array($value) && ! empty($value) && is_string($value) && strpos($value, ',') !== false) {
-            $value = explode(',', $value);
+        if ($requireArray && ! is_array($value) && ! empty($value) && is_string($value)) {
+           	if(strpos($value, ',') !== false){
+				$value = explode(',', $value);
+			} else {
+				$value = [$value];
+			}
         }
 
         return $value;
