@@ -44,11 +44,11 @@ class CommonQueryBuilderTests extends TestCase
        ]
     }';
 
-    protected function setUp()
+    protected function setUp(): void
     {
     }
 
-    protected function getParserUnderTest($fields = null)
+    protected function getParserUnderTest($fields = [])
     {
         return new QueryBuilderParser($fields);
     }

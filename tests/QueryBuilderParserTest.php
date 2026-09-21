@@ -534,6 +534,42 @@ class QueryBuilderParserTest extends CommonQueryBuilderTests
         $this->assertEquals($bindings_are, $builder->getBindings());
     }
 
+    public function testFieldGreaterComparesToAnotherField()
+    {
+        $builder = $this->createQueryBuilder();
+        $qb = $this->getParserUnderTest(['price', 'other_price']);
+
+        $json = '{"condition":"AND","rules":[{"id":"price","field":"price","type":"double","operator":"field_greater","value":"other_price"}]}';
+        $qb->parse($json, $builder);
+
+        $this->assertEquals('select * where `price` > `other_price`', $builder->toSql());
+        $this->assertCount(0, $builder->getBindings());
+    }
+
+    public function testFieldCompareOperatorRejectsFieldNotInAllowedList()
+    {
+        $builder = $this->createQueryBuilder();
+        $qb = $this->getParserUnderTest(['price']);
+
+        $this->expectException('timgws\QBParseException');
+        $this->expectExceptionMessage('Field (other_price) does not exist in fields list');
+
+        $json = '{"condition":"AND","rules":[{"id":"price","field":"price","type":"double","operator":"field_greater","value":"other_price"}]}';
+        $qb->parse($json, $builder);
+    }
+
+    public function testTopLevelConditionInjectionThrows()
+    {
+        $builder = $this->createQueryBuilder();
+        $qb = $this->getParserUnderTest(['price']);
+
+        $this->expectException('timgws\QBParseException');
+        $this->expectExceptionMessage("Condition can only be one of");
+
+        $json = '{"condition":"ALSO","rules":[{"id":"price","field":"price","type":"double","operator":"less","value":"10.25"},{"id":"price","field":"price","type":"double","operator":"greater","value":"9.25"}]}';
+        $qb->parse($json, $builder);
+    }
+
     /**
      * @throws \timgws\QBParseException
      * @expectedException \timgws\QBParseException

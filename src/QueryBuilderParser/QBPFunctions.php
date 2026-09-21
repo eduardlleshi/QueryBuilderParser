@@ -35,6 +35,12 @@ trait QBPFunctions
 		'is_not_empty'     => [ 'accept_values' => false, 'apply_to' => [ 'string' ] ],
 		'is_null'          => [ 'accept_values' => false, 'apply_to' => [ 'string', 'number', 'datetime' ] ],
 		'is_not_null'      => [ 'accept_values' => false, 'apply_to' => [ 'string', 'number', 'datetime' ] ],
+		'field_equal'            => [ 'accept_values' => true, 'apply_to' => [ 'number', 'datetime' ] ],
+		'field_not_equal'        => [ 'accept_values' => true, 'apply_to' => [ 'number', 'datetime' ] ],
+		'field_less'             => [ 'accept_values' => true, 'apply_to' => [ 'number', 'datetime' ] ],
+		'field_less_or_equal'    => [ 'accept_values' => true, 'apply_to' => [ 'number', 'datetime' ] ],
+		'field_greater'          => [ 'accept_values' => true, 'apply_to' => [ 'number', 'datetime' ] ],
+		'field_greater_or_equal' => [ 'accept_values' => true, 'apply_to' => [ 'number', 'datetime' ] ],
 	];
 
 	protected $operator_sql = [
@@ -58,6 +64,12 @@ trait QBPFunctions
 		'is_not_empty'     => [ 'operator' => '!=' ],
 		'is_null'          => [ 'operator' => 'NULL' ],
 		'is_not_null'      => [ 'operator' => 'NOT NULL' ],
+		'field_equal'            => [ 'operator' => '=' ],
+		'field_not_equal'        => [ 'operator' => '!=' ],
+		'field_less'             => [ 'operator' => '<' ],
+		'field_less_or_equal'    => [ 'operator' => '<=' ],
+		'field_greater'          => [ 'operator' => '>' ],
+		'field_greater_or_equal' => [ 'operator' => '>=' ],
 	];
 
 	protected $needs_array = [
@@ -92,14 +104,30 @@ trait QBPFunctions
 	}
 
 	/**
+	 * Determine if an operator compares the field against another field, rather than a literal value.
+	 *
+	 * @param $operator
+	 *
+	 * @return bool
+	 */
+	protected function operatorComparesField( $operator )
+	{
+		return str_starts_with( $operator, 'field_' );
+	}
+
+	/**
 	 * Make sure that a condition is either 'or' or 'and'.
 	 *
 	 * @param $condition
-	 * @return string
+	 * @return string|null
 	 * @throws QBParseException
 	 */
 	protected function validateCondition( $condition )
 	{
+		if ( is_null( $condition ) ) {
+			return $condition;
+		}
+
 		$condition = trim( strtolower( $condition ) );
 
 		if ( $condition !== 'and' && $condition !== 'or' ) {
@@ -276,7 +304,7 @@ trait QBPFunctions
 	 * @param $field
 	 * @throws QBParseException
 	 */
-	private function ensureFieldIsAllowed( $fields, $raw_fields, $field )
+	protected function ensureFieldIsAllowed( $fields, $raw_fields, $field )
 	{
 		if ( is_array( $fields ) && !in_array( $field, $fields ) && is_array( $raw_fields ) && !in_array( $field, $raw_fields ) ) {
 			throw new QBParseException( "Field ({$field}) does not exist in fields list" );

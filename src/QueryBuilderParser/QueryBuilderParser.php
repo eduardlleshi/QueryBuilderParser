@@ -226,6 +226,8 @@ class QueryBuilderParser
 	 */
 	protected function makeQuery( $query, stdClass $rule, $queryCondition = 'AND' )
 	{
+		$this->validateCondition( $queryCondition );
+
 		/*
 		 * Ensure that the value is correct for the rule, return query on exception
 		 */
@@ -272,6 +274,8 @@ class QueryBuilderParser
 			return $this->makeQueryWhenArray( $query, $rule, $sqlOperator, $value, $condition );
 		} elseif ( $this->operatorIsNull( $operator ) ) {
 			return $this->makeQueryWhenNull( $query, $rule, $sqlOperator, $condition );
+		} elseif ( $this->operatorComparesField( $rule->operator ) ) {
+			return $query->whereColumn( $rule->field, $operator, $value, $condition );
 		}
 
 		return $query->where( $rule->field, $sqlOperator['operator'], $value, $condition );
@@ -317,6 +321,15 @@ class QueryBuilderParser
 		 * \o/ Ensure that the value is an array only if it should be.
 		 */
 		$value = $this->getCorrectValue( $operator, $rule, $value );
+
+		/*
+		 * When comparing against another field, the value is a column name rather than a
+		 * literal - it must be restricted to the same whitelist as $rule->field, otherwise
+		 * an arbitrary column/raw SQL fragment could be interpolated via whereColumn().
+		 */
+		if ( $this->operatorComparesField( $rule->operator ) ) {
+			$this->ensureFieldIsAllowed( $this->fields, $this->raw_fields, $value );
+		}
 
 		return $value;
 	}
