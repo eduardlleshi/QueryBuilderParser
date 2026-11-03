@@ -59,7 +59,9 @@ class CommonQueryBuilderTests extends TestCase
     protected function createQueryBuilder()
     {
         $pdo = new \PDO('sqlite::memory:');
-        $builder = new Builder(new Connection($pdo), new MySQLGrammar(), new MySQLProcessor());
+        $connection = new Connection($pdo);
+        // Laravel 12+ grammars need the connection (older grammars ignore the argument).
+        $builder = new Builder($connection, new MySQLGrammar($connection), new MySQLProcessor());
 
         return $builder;
     }

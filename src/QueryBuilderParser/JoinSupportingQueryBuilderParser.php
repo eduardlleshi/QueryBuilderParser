@@ -28,9 +28,9 @@ class JoinSupportingQueryBuilderParser extends QueryBuilderParser
      *
      * * optional field
      */
-    public function __construct(array $fields = null, array $joinFields = null)
+    public function __construct(?array $fields = null, ?array $joinFields = null)
     {
-        parent::__construct($fields);
+        parent::__construct($fields ?? []);
         $this->joinFields = $joinFields;
     }
 
